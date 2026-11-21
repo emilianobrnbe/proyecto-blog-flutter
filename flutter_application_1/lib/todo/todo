@@ -1,0 +1,1007 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Proyecto Flutter: Login, Registro y CRUD de usuarios (comentado)
+
+Estructura de carpetas:
+
+```
+lib/
+├── main.dart
+├── models/
+│   └── user_model.dart
+├── services/
+│   ├── auth_service.dart
+│   └── user_service.dart
+├── widgets/
+│   ├── auth_background.dart
+│   ├── auth_card.dart
+│   ├── custom_text_field.dart
+│   └── primary_button.dart
+└── screens/
+    ├── login_user_page.dart
+    ├── register_user_page.dart
+    └── users_page.dart
+```
+
+---
+
+## 1. `lib/main.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import 'screens/login_user_page.dart';
+import 'screens/register_user_page.dart';
+import 'screens/users_page.dart';
+
+// Punto de entrada: lo primero que se ejecuta.
+void main() {
+  runApp(const LoginApp()); // Arranca la app con el widget raíz
+}
+
+// Widget raíz. Es StatelessWidget porque no cambia su estado.
+class LoginApp extends StatelessWidget {
+  const LoginApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false, // Quita la etiqueta "DEBUG"
+      title: 'Mi aplicacion',
+
+      // Pantalla con la que inicia la app (cambiarla = cambiar la ruta)
+      initialRoute: '/users',
+
+      // Mapa de rutas con nombre: nombre -> pantalla
+      routes: {
+        '/login': (context) => const LoginPage(),
+        '/register': (context) => const RegisterPage(),
+        '/users': (context) => const UsersPage(),
+      },
+    );
+  }
+}
+```
+
+---
+
+## 2. `lib/models/user_model.dart`
+
+```dart
+// MODELO: define cómo es un usuario (los datos que guarda).
+class UserModel {
+  int id;          // Identificador único
+  String nombre;
+  String correo;
+  String password;
+
+  // Constructor con parámetros nombrados y obligatorios
+  UserModel({
+    required this.nombre,
+    required this.correo,
+    required this.password,
+    required this.id,
+  });
+}
+```
+
+---
+
+## 3. `lib/services/auth_service.dart`
+
+```dart
+// SERVICIO de autenticación: solo contiene la lógica de validación.
+// Devuelve un String? (mensaje de error) o null si todo está bien.
+class AuthService {
+
+  // Valida el formulario de login
+  String? validarLogin({
+    required String usuario,
+    required String password,
+  }) {
+    // Si alguno está vacío, devuelve el error
+    if (usuario.isEmpty || password.isEmpty) {
+      return 'Completa usuario y contraseña';
+    }
+    return null; // null = todo correcto
+  }
+
+  // Valida el formulario de registro
+  String? validarRegistro({
+    required String nombre,
+    required String correo,
+    required String password,
+    required String confirmarPassword,
+  }) {
+    // 1. Ningún campo vacío
+    if (nombre.isEmpty ||
+        correo.isEmpty ||
+        password.isEmpty ||
+        confirmarPassword.isEmpty) {
+      return 'Completa todos los campos';
+    }
+
+    // 2. El correo debe contener @
+    if (!correo.contains('@')) {
+      return 'Ingresa un correo válido';
+    }
+
+    // 3. Contraseña de mínimo 6 caracteres
+    if (password.length < 6) {
+      return 'La contraseña debe tener al menos 6 caracteres';
+    }
+
+    // 4. Las dos contraseñas deben ser iguales
+    if (password != confirmarPassword) {
+      return 'Las contraseñas no coinciden';
+    }
+
+    return null; // Todo bien
+  }
+}
+```
+
+---
+
+## 4. `lib/services/user_service.dart`
+
+```dart
+import '../models/user_model.dart';
+
+// SERVICIO de usuarios: guarda la lista y tiene las operaciones del CRUD.
+class UserService {
+
+  // Lista privada (el _ la hace privada) con 3 usuarios de ejemplo
+  final List<UserModel> _usuarios = [
+    UserModel(id: 1, nombre: 'Yhoset Hernandez', correo: 'yhosepe@gmail.com', password: '123456'),
+    UserModel(id: 2, nombre: 'Heriberto romero', correo: 'heridog@gmail.com', password: '123456'),
+    UserModel(id: 3, nombre: 'Eliel Rodriguez', correo: 'Eliro@gmail.com', password: '123456'),
+  ];
+
+  // READ: devuelve toda la lista
+  List<UserModel> obtenerUsuarios() {
+    return _usuarios;
+  }
+
+  // CREATE: agrega un usuario al final
+  void agregarUsuario(UserModel usuario) {
+    _usuarios.add(usuario);
+  }
+
+  // UPDATE: busca por id y reemplaza ese usuario
+  void actualizarUsuario(UserModel usuario) {
+    // indexWhere devuelve la posición, o -1 si no lo encuentra
+    final indice = _usuarios.indexWhere(
+      (elemento) => elemento.id == usuario.id,
+    );
+    if (indice != -1) {
+      _usuarios[indice] = usuario;
+    }
+  }
+
+  // DELETE: elimina todos los que tengan ese id
+  void eliminarUsuario(int id) {
+    _usuarios.removeWhere(
+      (usuario) => usuario.id == id,
+    );
+  }
+}
+```
+
+---
+
+## 5. `lib/widgets/auth_background.dart`
+
+```dart
+import 'package:flutter/material.dart';
+
+// Fondo con degradado que se usa detrás del login y registro.
+class AuthBackground extends StatelessWidget {
+  final Widget child; // Lo que se dibuja encima del fondo
+
+  const AuthBackground({
+    super.key,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        // Degradado de esquina superior izquierda a inferior derecha
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFE6F6FF),
+            Color(0xFFBFD9FF),
+            Color(0xFFD9D1FF),
+            Color(0xFFE8DFFF),
+          ],
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+```
+
+---
+
+## 6. `lib/widgets/auth_card.dart`
+
+```dart
+import 'package:flutter/material.dart';
+
+// Tarjeta blanca con sombra que contiene los formularios.
+class AuthCard extends StatelessWidget {
+  final Widget child;
+
+  const AuthCard({
+    super.key,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 10, // Altura de la sombra
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14), // Esquinas redondeadas
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24), // Espacio interno
+        child: SizedBox(
+          width: 340, // Ancho fijo de la tarjeta
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+## 7. `lib/widgets/custom_text_field.dart`
+
+```dart
+import 'package:flutter/material.dart';
+
+// Campo de texto reutilizable con estilo propio.
+class CustomTextField extends StatelessWidget {
+  final TextEditingController controller; // Lee/escribe el texto
+  final String label;                     // Texto flotante (etiqueta)
+  final IconData prefixIcon;              // Ícono a la izquierda
+  final bool obscureText;                 // true = oculta el texto (contraseña)
+  final Widget? suffixIcon;               // Ícono opcional a la derecha (el ojito)
+  final TextInputType keyboardType;       // Tipo de teclado
+
+  const CustomTextField({
+    super.key,
+    required this.controller,
+    required this.label,
+    required this.prefixIcon,
+    this.obscureText = false,                 // Valor por defecto
+    this.suffixIcon,
+    this.keyboardType = TextInputType.text,   // Valor por defecto
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(prefixIcon),
+        suffixIcon: suffixIcon,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+## 8. `lib/widgets/primary_button.dart`
+
+```dart
+import 'package:flutter/material.dart';
+
+// Botón azul reutilizable que ocupa todo el ancho.
+class PrimaryButton extends StatelessWidget {
+  final String text;            // Texto del botón
+  final VoidCallback onPressed; // Función que se ejecuta al presionar
+
+  const PrimaryButton({
+    super.key,
+    required this.text,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity, // Todo el ancho disponible
+      height: 48,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF2196F3), // Color de fondo
+          foregroundColor: Colors.white,            // Color del texto
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(25), // Muy redondeado
+          ),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+## 9. `lib/screens/login_user_page.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import '../widgets/auth_background.dart';
+import '../widgets/auth_card.dart';
+import '../widgets/custom_text_field.dart';
+import '../widgets/primary_button.dart';
+
+// StatefulWidget: necesita estado porque el ojito de la contraseña cambia.
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+
+  // Controllers: permiten leer lo que el usuario escribió
+  final TextEditingController usuarioController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
+  // Instancia del servicio de validación
+  final AuthService authService = AuthService();
+
+  // Controla si la contraseña se ve o no
+  bool ocultarPassword = true;
+
+  // Libera la memoria de los controllers al cerrar la pantalla
+  @override
+  void dispose() {
+    usuarioController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  // Se ejecuta al presionar INGRESAR
+  void iniciarSesion() {
+    // Pide al servicio que valide; devuelve mensaje de error o null
+    final mensaje = authService.validarLogin(
+      usuario: usuarioController.text.trim(), // trim quita espacios
+      password: passwordController.text,
+    );
+
+    // Si hay error, lo muestra en un SnackBar y se detiene
+    if (mensaje != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensaje)),
+      );
+      return;
+    }
+
+    // Si no hay error, muestra el saludo
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Bienvenido ${usuarioController.text}')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: AuthBackground(          // Fondo degradado
+        child: Center(               // Centra la tarjeta
+          child: AuthCard(           // Tarjeta blanca
+            child: Column(
+              mainAxisSize: MainAxisSize.min, // La columna ocupa solo lo necesario
+              children: [
+
+                // Ícono del candado
+                const Icon(Icons.lock, size: 65, color: Color(0xFFC9A227)),
+                const SizedBox(height: 15), // Espacio vertical
+
+                // Título
+                const Text(
+                  'INICIAR SESIÓN',
+                  style: TextStyle(
+                    fontSize: 27,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF08245C),
+                  ),
+                ),
+                const SizedBox(height: 25),
+
+                // Campo de usuario
+                CustomTextField(
+                  controller: usuarioController,
+                  label: 'Usuario',
+                  prefixIcon: Icons.person,
+                ),
+                const SizedBox(height: 15),
+
+                // Campo de contraseña con ojito para mostrar/ocultar
+                CustomTextField(
+                  controller: passwordController,
+                  label: 'Contraseña',
+                  prefixIcon: Icons.lock_outline,
+                  obscureText: ocultarPassword,
+                  suffixIcon: IconButton(
+                    // Cambia el ícono según el estado
+                    icon: Icon(
+                      ocultarPassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                    onPressed: () {
+                      // setState vuelve a dibujar la pantalla con el nuevo valor
+                      setState(() {
+                        ocultarPassword = !ocultarPassword;
+                      });
+                    },
+                  ),
+                ),
+
+                // Texto "olvidaste tu contraseña" alineado a la derecha
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {}, // Aún no hace nada
+                    child: const Text('¿Olvidaste tu contraseña?'),
+                  ),
+                ),
+                const SizedBox(height: 5),
+
+                // Botón principal
+                PrimaryButton(
+                  text: 'INGRESAR',
+                  onPressed: iniciarSesion,
+                ),
+                const SizedBox(height: 15),
+
+                // Fila con texto + botón para ir al registro
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('¿No tienes cuenta?'),
+                    TextButton(
+                      onPressed: () {
+                        // Va a la pantalla de registro usando su ruta con nombre
+                        Navigator.pushNamed(context, '/register');
+                      },
+                      child: const Text('Registrarse'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+## 10. `lib/screens/register_user_page.dart`
+
+```dart
+import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import '../widgets/auth_background.dart';
+import '../widgets/auth_card.dart';
+import '../widgets/custom_text_field.dart';
+import '../widgets/primary_button.dart';
+
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
+
+  @override
+  State<RegisterPage> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+
+  // Un controller por cada campo del formulario
+  final TextEditingController nombreController = TextEditingController();
+  final TextEditingController correoController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
+  final AuthService authService = AuthService();
+
+  // Libera la memoria de todos los controllers
+  @override
+  void dispose() {
+    nombreController.dispose();
+    correoController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  // Se ejecuta al presionar REGISTRARME
+  void registrarUsuario() {
+    final mensaje = authService.validarRegistro(
+      nombre: nombreController.text.trim(),
+      correo: correoController.text.trim(),
+      password: passwordController.text,
+      // OJO: aquí se manda la misma contraseña dos veces, por eso
+      // "no coinciden" nunca falla. Lo correcto sería un 4º campo
+      // (confirmarController) y mandar confirmarController.text.
+      confirmarPassword: passwordController.text,
+    );
+
+    // Si hay error, lo muestra y se detiene
+    if (mensaje != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensaje)),
+      );
+      return;
+    }
+
+    // Si todo está bien, avisa que se registró
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Usuario ${nombreController.text} registrado')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: AuthBackground(
+        child: Center(
+          child: AuthCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+
+                const Icon(Icons.person_add, size: 65, color: Color(0xFF2196F3)),
+                const SizedBox(height: 15),
+
+                const Text(
+                  'CREAR CUENTA',
+                  style: TextStyle(
+                    fontSize: 27,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF08245C),
+                  ),
+                ),
+                const SizedBox(height: 25),
+
+                // Nombre
+                CustomTextField(
+                  controller: nombreController,
+                  label: 'Nombre completo',
+                  prefixIcon: Icons.person,
+                ),
+                const SizedBox(height: 15),
+
+                // Correo (teclado con @ incluido)
+                CustomTextField(
+                  controller: correoController,
+                  label: 'Correo electrónico',
+                  prefixIcon: Icons.email,
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 15),
+
+                // Contraseña (siempre oculta)
+                CustomTextField(
+                  controller: passwordController,
+                  label: 'Contraseña',
+                  prefixIcon: Icons.lock,
+                  obscureText: true,
+                ),
+                const SizedBox(height: 25),
+
+                PrimaryButton(
+                  text: 'REGISTRARME',
+                  onPressed: registrarUsuario,
+                ),
+                const SizedBox(height: 15),
+
+                // Regresa a la pantalla anterior (el login)
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Ya tengo una cuenta'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+## 11. `lib/screens/users_page.dart` (CRUD completo)
+
+```dart
+import 'package:flutter/material.dart';
+import '../services/user_service.dart';
+import '../models/user_model.dart';
+
+class UsersPage extends StatefulWidget {
+  const UsersPage({super.key});
+
+  @override
+  State<UsersPage> createState() => _UsersPageState();
+}
+
+class _UsersPageState extends State<UsersPage> {
+
+  // Servicio que guarda y maneja la lista de usuarios
+  final UserService userService = UserService();
+
+  // Controllers compartidos por los diálogos de crear y editar
+  final TextEditingController nombreController = TextEditingController();
+  final TextEditingController correoController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
+  // ---------------------------------------------------------------
+  // CREATE: abre el diálogo para crear un usuario nuevo
+  // ---------------------------------------------------------------
+  void mostrarFormulario() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Nuevo usuario'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nombreController,
+                decoration: const InputDecoration(labelText: 'Nombre'),
+              ),
+              TextField(
+                controller: correoController,
+                decoration: const InputDecoration(labelText: 'Correo'),
+              ),
+              TextField(
+                controller: passwordController,
+                obscureText: true, // Oculta la contraseña
+                decoration: const InputDecoration(labelText: 'Contraseña'),
+              ),
+            ],
+          ),
+          actions: [
+            // Cierra el diálogo sin guardar
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Cancelar'),
+            ),
+            // Guarda y cierra el diálogo
+            ElevatedButton(
+              onPressed: () {
+                crearUsuario();
+                Navigator.pop(context);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Crea el usuario con lo escrito y lo agrega a la lista
+  void crearUsuario() {
+    final nuevoUsuario = UserModel(
+      // El id se genera con la hora actual en milisegundos (único)
+      id: DateTime.now().millisecondsSinceEpoch,
+      nombre: nombreController.text,
+      correo: correoController.text,
+      password: passwordController.text,
+    );
+
+    userService.agregarUsuario(nuevoUsuario);
+
+    setState(() {}); // Redibuja la lista para mostrar el nuevo usuario
+
+    // Limpia los campos para la próxima vez
+    nombreController.clear();
+    correoController.clear();
+    passwordController.clear();
+  }
+
+  // ---------------------------------------------------------------
+  // UPDATE: abre el diálogo con los datos del usuario ya cargados
+  // ---------------------------------------------------------------
+  void editarUsuario(UserModel usuario) {
+    // Rellena los campos con los datos actuales
+    nombreController.text = usuario.nombre;
+    correoController.text = usuario.correo;
+    passwordController.text = usuario.password;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Editar usuario'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nombreController,
+                decoration: const InputDecoration(labelText: 'Nombre'),
+              ),
+              TextField(
+                controller: correoController,
+                decoration: const InputDecoration(labelText: 'Correo'),
+              ),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Contraseña'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // Crea un usuario con el MISMO id y los datos nuevos
+                final usuarioActualizado = UserModel(
+                  id: usuario.id,
+                  nombre: nombreController.text,
+                  correo: correoController.text,
+                  password: passwordController.text,
+                );
+
+                // El servicio lo busca por id y lo reemplaza
+                userService.actualizarUsuario(usuarioActualizado);
+
+                setState(() {}); // Redibuja la lista
+
+                Navigator.pop(context);
+              },
+              child: const Text('Actualizar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ---------------------------------------------------------------
+  // DELETE: borra al usuario y refresca la pantalla
+  // ---------------------------------------------------------------
+  void eliminarUsuario(int id) {
+    userService.eliminarUsuario(id);
+    setState(() {});
+  }
+
+  // Diálogo de confirmación antes de borrar (YA COMPLETO)
+  void comfirmarEliminar(int id) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Eliminar Usuario"),
+          content: const Text("¿Seguro que quieres eliminar el usuario?"),
+          actions: [
+            // Cancelar: solo cierra el diálogo
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text("Cancelar"),
+            ),
+            // Eliminar: borra al usuario y luego cierra el diálogo
+            ElevatedButton(
+              onPressed: () {
+                eliminarUsuario(id);
+                Navigator.pop(context);
+              },
+              child: const Text("Eliminar"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ---------------------------------------------------------------
+  // READ: dibuja la pantalla con la lista de usuarios
+  // ---------------------------------------------------------------
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+
+      // Botón flotante "+" que abre el formulario de nuevo usuario
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          mostrarFormulario();
+        },
+        child: const Icon(Icons.add),
+      ),
+
+      // Barra superior
+      appBar: AppBar(
+        title: const Text('Gestion de Usuarios'),
+      ),
+
+      // Lista que se construye según la cantidad de usuarios
+      body: ListView.builder(
+        itemCount: userService.obtenerUsuarios().length, // Cuántos elementos
+        itemBuilder: (context, index) {
+          // Usuario que corresponde a esta posición
+          final usuario = userService.obtenerUsuarios()[index];
+
+          return ListTile(
+            // Avatar a la izquierda
+            leading: const CircleAvatar(
+              child: Icon(Icons.person),
+            ),
+            // Nombre y correo
+            title: Text(usuario.nombre),
+            subtitle: Text(usuario.correo),
+            // Botones editar y eliminar a la derecha
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min, // Evita que la fila ocupe todo
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () {
+                    editarUsuario(usuario);
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () {
+                    comfirmarEliminar(usuario.id);
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+---
+
+## Resumen rápido de cómo se conecta todo
+
+| Pieza | Para qué sirve |
+|---|---|
+| `main.dart` | Arranca la app, define rutas y la pantalla inicial |
+| `UserModel` | Define cómo es un usuario |
+| `AuthService` | Validaciones de login y registro |
+| `UserService` | Lista de usuarios y el CRUD (agregar, actualizar, eliminar, obtener) |
+| Widgets | Piezas visuales reutilizables (fondo, tarjeta, campo, botón) |
+| `LoginPage` / `RegisterPage` | Pantallas de acceso, usan `AuthService` |
+| `UsersPage` | CRUD visual, usa `UserService` y `UserModel` |
+
+**Flujo típico:** el usuario escribe en un `TextField` → el `controller` guarda el texto → al presionar el botón se llama una función → esa función usa un *service* → `setState` redibuja la pantalla.
